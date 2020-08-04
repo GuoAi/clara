@@ -250,7 +250,7 @@ class Parser(object):
             self.ssa(fnc)
             self.rmtmp(fnc)
 
-    def visit(self, node):
+    def visit(self, node, prefix):
 
         # Skip None-node
         if node is None:
@@ -265,10 +265,10 @@ class Parser(object):
             raise NotSupported("Unimplemented visitor: '%s'" % (name,))
 
         # Call visitor method
-        return meth(node)
+        return meth(node, prefix = prefix)
 
-    def visit_expr(self, node, allowlist=False, allownone=False):
-        res = self.visit(node)
+    def visit_expr(self, node, prefix, allowlist=False, allownone=False):
+        res = self.visit(node, prefix = prefix)
 
         if isinstance(res, list) and allowlist:
             ok = True
@@ -293,14 +293,15 @@ class Parser(object):
 
         return res
 
-    def visit_if(self, node, cond, true, false):
+    def visit_if(self, node, cond, true, false, prefix):
 
         # Add condition (with new location)
         preloc = self.loc
         condloc = self.addloc('the condition of the if-statement at line %d' % (
             self.getline(cond)
         ))
-        condexpr = self.visit_expr(cond, allowlist=True)
+        condexpr = self.visit_expr(cond, allowlist=True, prefix = prefix)
+        # print('Line %s: %s (parser, 304)' % (self.getline(node), prefix + 'if.'))
         if isinstance(condexpr, list):
             condexpr = self.expr_list_and(condexpr)
         self.addexpr(VAR_COND, condexpr)
@@ -309,7 +310,8 @@ class Parser(object):
         trueline = self.getline(true) or self.getline(node)
         trueloc = self.addloc('inside the if-branch starting at line %d' % (
             trueline))
-        self.visit(true)
+        self.visit(true, prefix = prefix)
+        # print('Line %s: %s (parser, 314)' % (trueline, prefix + 'iftrue.'))
         afterloc1 = self.loc
 
         afterloc = self.addloc('after the if-statement beginning at line %s' % (
@@ -325,7 +327,8 @@ class Parser(object):
         if false:
             falseloc = self.addloc('inside the else-branch starting at line %d' % (
                 self.getline(false)))
-            self.visit(false)
+            self.visit(false, prefix = prefix)
+            # print('Line %s: %s (parser, 331)' % (self.getline(false), prefix + 'iffalse.'))
             afterloc2 = self.loc
 
             self.addtrans(condloc, False, falseloc)
@@ -400,18 +403,20 @@ class Parser(object):
                 newexpr = Op('&&', newexpr, expr, line=expr.line)
             return newexpr
 
-    def visit_loop(self, node, init, cond, next, body, do, name, prebody=None):
+    def visit_loop(self, node, init, cond, next, body, do, name, prefix, prebody=None):
         
         # Visit init stmts
         if init:
-            self.visit(init)
+            self.visit(init, prefix = prefix)
+            # print('Line %s: %s (parser, 411)' % (self.getline(node), prefix + 'loop.'))
 
         # Add condition (with new location)
         preloc = self.loc
         if isinstance(cond, Expr):
             condexpr = cond
         else:
-            condexpr = self.visit_expr(cond, allowlist=True)
+            condexpr = self.visit_expr(cond, prefix = prefix, allowlist=True)
+            # print('Line %s: %s (parser, 419)' % (self.getline(node), prefix + 'loop.'))
             if isinstance(condexpr, list):
                 condexpr = self.expr_list_and(condexpr)
                 
@@ -431,7 +436,8 @@ class Parser(object):
             nextloc = self.addloc("update of the '%s' loop at line %d" % (
                 name, self.getline(next)
             ))
-            self.visit(next)
+            self.visit(next, prefix = prefix)
+            # print('Line %s: %s (parser, 440)' % (self.getline(node), prefix + 'loop.'))
         else:
             nextloc = None
 
@@ -443,7 +449,8 @@ class Parser(object):
         if prebody:
             for x in prebody:
                 self.addexpr(*x)
-        self.visit(body)
+        self.visit(body, prefix = prefix)
+        # print('Line %s: %s (parser, 453)' % (self.getline(node), prefix + 'loop.'))
         self.poploop()
         afterloc = self.loc
 

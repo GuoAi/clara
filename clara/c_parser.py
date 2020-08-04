@@ -74,9 +74,9 @@ class CParser(Parser):
         except plyparser.ParseError as e:
             raise ParseError(str(e))
     
-        self.visit(self.ast)
+        self.visit(self.ast, '')
 
-    def visit_FileAST(self, node):
+    def visit_FileAST(self, node, prefix):
         '''
         FileAST - root node
         Attrs: ext (list)
@@ -85,21 +85,22 @@ class CParser(Parser):
         # Visit children
         fncs = set()
         for e in node.ext:
-            self.visit(e)
+            self.visit(e, prefix = prefix)
 
-    def visit_FuncDef(self, node):
+    def visit_FuncDef(self, node, prefix):
         '''
         FuncDef - function definition
         Attrs: decl, param_decls, body
         '''
 
         self.fncdef = True
-        (name, rtype, _) = self.visit(node.decl.type.type)
+        (name, rtype, _) = self.visit(node.decl.type.type, prefix = prefix)
 
         params = []
         if node.decl.type.args:
             for param in node.decl.type.args.params:
-                param = self.visit(param)
+                param = self.visit(param, prefix = prefix + name + '.')
+                print('Line %s: %s (c_parser, 103)' % (node.coord.line, prefix + name + '.'))
                 if param == 'void':
                     continue
                 if isinstance(param, Var):
@@ -114,23 +115,24 @@ class CParser(Parser):
         for v, t in params:
             self.addtype(v, t)
         
-        self.addloc(desc="at the beginning of the function '%s'" % (name,))
-        self.visit(node.body)
+        self.addloc(desc="at the beginning of the function '%s' at line %s" % (name, node.coord.line, ))
+        self.visit(node.body, prefix = prefix + name + '.')
+        print('Line %s: %s (c_parser, 120)' % (node.coord.line, prefix + name + '.'))
 
         self.endfnc()
 
-    def visit_FuncDecl(self, node):
+    def visit_FuncDecl(self, node, prefix):
         '''
         Function Declaration
         Attrs: args, type
         '''
 
         self.fncdef = True
-        (name, rtype, _) = self.visit(node.type)
+        (name, rtype, _) = self.visit(node.type, prefix = prefix)
         params = []
         if node.args:
             for param in node.args.params:
-                param = self.visit(param)
+                param = self.visit(param, prefix = prefix)
                 if param == 'void':
                     continue
                 if isinstance(param, Var):
@@ -151,7 +153,7 @@ class CParser(Parser):
 
         return (name, rtype, None)
         
-    def visit_Compound(self, node):
+    def visit_Compound(self, node, prefix):
         '''
         Compound - composition of statements
         Attrs: block_items
@@ -159,21 +161,21 @@ class CParser(Parser):
 
         if node.block_items:
             for item in node.block_items:
-                res = self.visit(item)
+                res = self.visit(item, prefix = prefix)
 
                 if isinstance(res, Op) and res.name == 'FuncCall':
                     self.addexpr('_', res)
                 
-    def visit_Assignment(self, node):
+    def visit_Assignment(self, node, prefix):
         '''
         Assignment
         Attrs: op, lvalue, rvalue
         '''
 
-        lvalue = self.visit_expr(node.lvalue)
+        lvalue = self.visit_expr(node.lvalue, prefix = prefix)
         postincdec = self.postincdec
         self.postincdec = 0
-        rvalue = self.visit(node.rvalue)
+        rvalue = self.visit(node.rvalue, prefix = prefix)
         postincdec, self.postincdec = self.postincdec, postincdec
 
         if not rvalue:
@@ -213,13 +215,13 @@ class CParser(Parser):
 
         return lvalue
 
-    def visit_EmptyStatement(self, node):
+    def visit_EmptyStatement(self, node, prefix):
         '''
         Empty statement
         Attrs:
         '''
 
-    def visit_ID(self, node):
+    def visit_ID(self, node, prefix):
         '''
         ID
         Attrs: name
@@ -230,7 +232,7 @@ class CParser(Parser):
 
         return Var(node.name, line=node.coord.line)
 
-    def visit_InitList(self, node):
+    def visit_InitList(self, node, prefix):
         '''
         Array Initialization List
         Attrs: exprs
@@ -238,22 +240,22 @@ class CParser(Parser):
         exprs = list(map(self.visit_expr, node.exprs or []))
         return Op('ArrayInit', *exprs, line=node.coord.line)
 
-    def visit_BinaryOp(self, node):
+    def visit_BinaryOp(self, node, prefix):
         '''
         BinaryOp - binary operation
         Attrs: op, left, right
         '''
 
-        return Op(node.op, self.visit_expr(node.left),
-                  self.visit_expr(node.right), line=node.coord.line)
+        return Op(node.op, self.visit_expr(node.left, prefix = prefix),
+                  self.visit_expr(node.right, prefix = prefix), line=node.coord.line)
 
-    def visit_UnaryOp(self, node):
+    def visit_UnaryOp(self, node, prefix):
         '''
         UnaryOp - unary operation
         Attrs: op, expr
         '''
 
-        expr = self.visit_expr(node.expr)
+        expr = self.visit_expr(node.expr, prefix = prefix)
 
         # Special cases
         # ++/--
@@ -278,21 +280,21 @@ class CParser(Parser):
 
         return Op(node.op, expr, line=node.coord.line)
 
-    def visit_ArrayRef(self, node):
+    def visit_ArrayRef(self, node, prefix):
         '''
         Array reference
         Attrs: name, subscript
         '''
 
-        name = self.visit_expr(node.name)
+        name = self.visit_expr(node.name, prefix = prefix)
         if not isinstance(name, Var):
             raise NotSupported("ArrayName: '%s'" % (name,))
 
-        sub = self.visit_expr(node.subscript)
+        sub = self.visit_expr(node.subscript, prefix = prefix)
 
         return Op('[]', name, sub, line=node.coord.line)
 
-    def visit_Constant(self, node):
+    def visit_Constant(self, node, prefix):
         '''
         Constant
         Attrs: type, value
@@ -300,41 +302,42 @@ class CParser(Parser):
 
         return Const(node.value, line=node.coord.line)
 
-    def visit_Cast(self, node):
+    def visit_Cast(self, node, prefix):
         '''
         Expression case
         Attrs: to_type, expr
         '''
-        tt = self.visit(node.to_type)
-        expr = self.visit_expr(node.expr)
+        tt = self.visit(node.to_type, prefix = prefix)
+        expr = self.visit_expr(node.expr, prefix = prefix)
         return Op('cast', Const(tt), expr, line=node.coord.line)
 
-    def visit_TernaryOp(self, node):
+    def visit_TernaryOp(self, node, prefix):
         '''
         Ternary Operator node
         Attrs: cond, iftrue, iffalse
         '''
 
-        cond = self.visit_expr(node.cond)
+        cond = self.visit_expr(node.cond, prefix = prefix)
 
         n = self.numexprs()
-        ift = self.visit_expr(node.iftrue)
-        iff = self.visit_expr(node.iffalse)
+        ift = self.visit_expr(node.iftrue, prefix = prefix)
+        iff = self.visit_expr(node.iffalse, prefix = prefix)
 
         if self.numexprs() > n:
             self.rmlastexprs(num=self.numexprs() - n)
-            return self.visit_if(node, node.cond, node.iftrue, node.iffalse)
+            return self.visit_if(node, node.cond, node.iftrue, node.iffalse, prefix)
 
         return Op('ite', cond, ift, iff, line=node.coord.line)
 
-    def visit_Switch(self, node):
+    def visit_Switch(self, node, prefix):
         '''
         Switch statement
         Attrs: cond, stmt
         '''
 
         # Parse condition
-        condexpr = self.visit_expr(node.cond)
+        condexpr = self.visit_expr(node.cond, prefix = prefix + 'switch.')
+        print('Line %s: %s (c_parser, 340)' % (node.coord.line, prefix + 'switch.'))
 
         # Check that stmt is a compound of "case"/"defaults"
         # and covert to "if-then-else"
@@ -369,7 +372,8 @@ class CParser(Parser):
                 insw = self.inswitch
                 self.inswitch = True
                 
-                res = self.visit(stmt)
+                res = self.visit(stmt, prefix = prefix + 'switch.')
+                print('Line %s: %s (c_parser, 376)' % (node.coord.line, prefix + 'switch.'))
                 
                 self.inswitch = insw
                 
@@ -378,27 +382,27 @@ class CParser(Parser):
         # Otherwise not-supported
         raise NotSupported("Switch statement", line=node.coord.line)
 
-    def visit_FuncCall(self, node):
+    def visit_FuncCall(self, node, prefix):
         '''
         FuncCall
         Attrs: name, args
         '''
 
         # Get (and check) name
-        name = self.visit_expr(node.name)
+        name = self.visit_expr(node.name, prefix = prefix)
         if not isinstance(name, Var):
             raise NotSupported("Non-var function name: '%s'" % (name,),
                                line=name.line)
 
         # Parse args
-        args = self.visit(node.args) or []
+        args = self.visit(node.args, prefix = prefix) or []
 
         # Special cases (scanf & printf)
         if name.name == 'scanf':
-            return self.visit_scanf(node, args)
+            return self.visit_scanf(node, args, prefix = prefix)
 
         elif name.name == 'printf':
-            return self.visit_printf(node, args)
+            return self.visit_printf(node, args, prefix = prefix)
 
         # Program functions
         elif name.name in self.fncs:
@@ -413,7 +417,7 @@ class CParser(Parser):
                 "Unsupported function call: '%s'" % (name.name,),
                 line=node.coord.line)
 
-    def visit_printf(self, node, args):
+    def visit_printf(self, node, args, prefix):
         '''
         printf function call
         '''
@@ -441,7 +445,7 @@ be a format" % (node.coord.line,))
                   line=node.coord.line)
         self.addexpr(VAR_OUT, expr)
 
-    def visit_scanf(self, node, args):
+    def visit_scanf(self, node, args, prefix):
         '''
         scanf function call
         '''
@@ -526,23 +530,24 @@ of 'scanf' at line %s.",
             self.addexpr(VAR_IN,
                          Op('ListTail', Var(VAR_IN), line=node.coord.line))
 
-    def visit_ExprList(self, node):
+    def visit_ExprList(self, node, prefix):
         '''
         ExprList
         Attrs: exprs
         '''
 
-        return list(map(self.visit_expr, node.exprs))
+        return list(map(self.visit_expr, node.exprs, prefix))
 
-    def visit_If(self, node):
+    def visit_If(self, node, prefix):
         '''
         If node
         Attrs: cond, iftrue, iffalse
         '''
 
-        self.visit_if(node, node.cond, node.iftrue, node.iffalse)
+        self.visit_if(node, node.cond, node.iftrue, node.iffalse, prefix = prefix + 'if.')
+        print('Line %s: %s (c_parser, 548)' % (self.getline(node), prefix + 'if.'))
 
-    def visit_While(self, node):
+    def visit_While(self, node, prefix):
         '''
         While
         Attrs: cond, stmt
@@ -552,9 +557,10 @@ of 'scanf' at line %s.",
             raise NotSupported("Loop inside switch", line=node.coord.line)
 
         self.visit_loop(node, None, node.cond, None, node.stmt,
-                        False, 'while')
+                        False, 'while', prefix = prefix + 'while.')
+        print('Line %s: %s (c_parser, 561)' % (node.coord.line, prefix + 'while.'))
 
-    def visit_DoWhile(self, node):
+    def visit_DoWhile(self, node, prefix):
         '''
         DoWhile loop
         Attrs: cond, stmt
@@ -564,9 +570,10 @@ of 'scanf' at line %s.",
             raise NotSupported("Loop inside switch", line=node.coord.line)
 
         self.visit_loop(node, None, node.cond, None, node.stmt,
-                        True, 'do-while')
+                        True, 'do-while', prefix = prefix + 'dowhile.')
+        print('Line %s: %s (c_parser, 574)' % (node.coord.line, prefix + 'dowhile.'))
 
-    def visit_For(self, node):
+    def visit_For(self, node, prefix):
         '''
         For
         Attrs: init, cond, next, stmt
@@ -576,20 +583,21 @@ of 'scanf' at line %s.",
             raise NotSupported("Loop inside switch", line=node.coord.line)
 
         self.visit_loop(node, node.init, node.cond, node.next, node.stmt,
-                        False, 'for')
+                        False, 'for', prefix = prefix + 'for.')
+        print('Line %s: %s (c_parser, 587)' % (node.coord.line, prefix + 'for.'))
 
-    def visit_Return(self, node):
+    def visit_Return(self, node, prefix):
         '''
         Return node
         Attrs: expr
         '''
 
-        expr = self.visit_expr(node.expr)
+        expr = self.visit_expr(node.expr, prefix = prefix)
         if not expr:
             expr = Const('top', line=node.coord.line)
         self.addexpr(VAR_RET, expr)
 
-    def visit_Break(self, node):
+    def visit_Break(self, node, prefix):
         '''
         Break node
         Attrs:
@@ -611,7 +619,7 @@ of 'scanf' at line %s.",
                 node.coord.line,))
         self.addtrans(preloc, True, lastloop[1])
 
-    def visit_Continue(self, node):
+    def visit_Continue(self, node, prefix):
         '''
         Continue node
         Attrs:
@@ -634,30 +642,30 @@ of 'scanf' at line %s.",
                 node.coord.line,))
         self.addtrans(preloc, True, lastloop[2] if lastloop[2] else lastloop[0])
 
-    def visit_Label(self, node):
+    def visit_Label(self, node, prefix):
         '''
         Label
         Attrs: name, stmt
         '''
         self.addwarn('Ignoring label at line %s.', node.coord.line)
-        return self.visit(node.stmt)
+        return self.visit(node.stmt, prefix = prefix)
 
-    def visit_Goto(self, node):
+    def visit_Goto(self, node, prefix):
         '''
         Goto
         Attrs: name
         '''
         raise NotSupported('Not supporting GOTO - it is considered harmful.')
 
-    def visit_Decl(self, node):
+    def visit_Decl(self, node, prefix):
         '''
         Decl - Declaration
         Attrs: name, quals, storage, funcspec, type, init, bitsize
         (using only: name, type & init)
         '''
 
-        (name, type, dim) = self.visit(node.type)
-        init = self.visit_expr(node.init, allownone=True)
+        (name, type, dim) = self.visit(node.type, prefix = prefix)
+        init = self.visit_expr(node.init, prefix = prefix, allownone=True)
 
         if not self.fncdef:
             try:
@@ -679,13 +687,13 @@ of 'scanf' at line %s.",
 
         return (name, type, dim)
 
-    def visit_ArrayDecl(self, node):
+    def visit_ArrayDecl(self, node, prefix):
         '''
         ArrayDecl - Array declaration
         Attrs: type, dim, dim_quals (ignored)
         '''
 
-        (name, type, dim) = self.visit(node.type)
+        (name, type, dim) = self.visit(node.type, prefix = prefix)
 
         if dim is not None or type.endswith('[]'):
             raise NotSupported('Double Array', line=node.coord.line)
@@ -693,25 +701,25 @@ of 'scanf' at line %s.",
         type += '[]'
         return (name, type, self.visit_expr(node.dim))
 
-    def visit_DeclList(self, node):
+    def visit_DeclList(self, node, prefix):
         '''
         DeclList
         Attrs: decls
         '''
 
         for decl in node.decls:
-            self.visit(decl)
+            self.visit(decl, prefix = prefix)
 
-    def visit_TypeDecl(self, node):
+    def visit_TypeDecl(self, node, prefix):
         '''
         TypeDecl - Type declaration
         Attrs: declname, quals, type
         (quals is ignored)
         '''
 
-        return (node.declname, self.visit(node.type), None)
+        return (node.declname, self.visit(node.type, prefix = prefix), None)
 
-    def visit_IdentifierType(self, node):
+    def visit_IdentifierType(self, node, prefix):
         '''
         IdentifierType - Type name
         Attrs: names
@@ -720,12 +728,12 @@ of 'scanf' at line %s.",
         name = '_'.join(node.names)
         return self.TYPE_SYNONYMS.get(name, name)
 
-    def visit_Typename(self, node):
+    def visit_Typename(self, node, prefix):
         '''
         Type name
         Attrs: quals, type
         '''
-        (_, name, _) = self.visit(node.type)
+        (_, name, _) = self.visit(node.type, prefix = prefix)
         return str(name)
 
     def getline(self, node):

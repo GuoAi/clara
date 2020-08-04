@@ -103,6 +103,8 @@ Options are:
 
     def main(self):
 
+        print('v1')
+
         global VERBOSE
 
         self.args, self.opts = parseargs(sys.argv[1:])
