@@ -55,6 +55,7 @@ class StructuralClustering(object):
         if existing is None: existing = []
         clusters = list(existing)
         modset = set()
+        clusters_dict = {}
 
         # Go through all programs
         for prog in progs:
@@ -73,6 +74,7 @@ class StructuralClustering(object):
                         # modset.add(i)
                     
                     found = True
+                    clusters_dict[cprog].append(prog)
                     break
                 except:
                     m = None
@@ -82,10 +84,11 @@ class StructuralClustering(object):
                 ex = prog.name.rsplit('.')[-1]
                 prog.new_name = 'c%d.%s' % (len(clusters)+1, ex)
                 clusters.append(prog)
+                clusters_dict[prog] = [prog]
 
         new = clusters[len(existing):]
         mod = [existing[i] for i in modset if i < len(existing)]
-        return (new, mod)
+        return (new, mod, clusters_dict)
 
         
 

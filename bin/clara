@@ -250,7 +250,7 @@ Options are:
             existing.append(model)
         print("Found %d existing clusters" % (len(existing)))
                     
-        new, mod = C.cluster(self.models, self.inter,
+        new, mod, clusters_dict = C.cluster(self.models, self.inter,
                              ins=self.ins, args=self.args,
                              entryfnc=self.entryfnc, existing=existing)
 
@@ -259,7 +259,7 @@ Options are:
         # Add new clusters
         for f in new:
             f.new_name = os.path.join(self.clusterdir, f.new_name)
-            f.new_name = f.new_name + '(' + f.name.split('/')[-1] + ')'
+            f.new_name = f.new_name.split('.')[0] + '(' + f.name.split('/')[-1].split('.')[0] + ').c' 
             print("NEW:", f.name, "->", f.new_name)
 
             # Copy the source file
@@ -275,6 +275,11 @@ Options are:
         for f in mod:
             print("MOD:", f.name)
             self.dump_exprs(f)
+
+        for cprog in clusters_dict:
+            os.mkdir(cprog.new_name.replace('.c', ''))
+            for prog in clusters_dict[cprog]:
+                shutil.copyfile(prog.name, cprog.new_name.replace('.c', '') + '/' + prog.name.split('/')[-1])
 
     def structuralcluster(self):
         if len(self.models) < 1:
@@ -293,7 +298,7 @@ Options are:
             existing.append(model)
         print("Found %d existing clusters" % (len(existing)))
                     
-        new, mod = C.cluster(self.models,
+        new, mod, clusters_dict = C.cluster(self.models,
                              entryfnc=self.entryfnc, existing=existing)
 
         print("Done, %d new clusters, %d modified clusters" % (len(new), len(mod)))
@@ -301,7 +306,7 @@ Options are:
         # Add new clusters
         for f in new:
             f.new_name = os.path.join(self.clusterdir, f.new_name)
-            f.new_name = f.new_name + '(' + f.name.split('/')[-1] + ')'
+            f.new_name = f.new_name.split('.')[0] + '(' + f.name.split('/')[-1].split('.')[0] + ').c' 
             print("NEW:", f.name, "->", f.new_name)
 
             # Copy the source file
@@ -317,6 +322,11 @@ Options are:
         for f in mod:
             print("MOD:", f.name)
             self.dump_exprs(f)
+
+        for cprog in clusters_dict:
+            os.mkdir(cprog.new_name.replace('.c', ''))
+            for prog in clusters_dict[cprog]:
+                shutil.copyfile(prog.name, cprog.new_name.replace('.c', '') + '/' + prog.name.split('/')[-1])
 
     def eval(self):
 
