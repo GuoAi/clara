@@ -24,6 +24,7 @@ from clara.feedback_python import PythonFeedback
 from clara.interpreter import getlanginter
 from clara.matching import Matching
 from clara.clustering import Clustering
+from clara.structuralclustering import StructuralClustering
 from clara.model import expr_to_dict, dict_to_expr
 from clara.parser import getlangparser
 from clara.repair import Repair
@@ -42,6 +43,7 @@ Commands are:
   cluster    run the clustering on a set of files
   repair     run the repair algorithm on two source files
   feedback   generates feedback on multiple specifications
+  structuralcluster run structural clustering on a set of files
 
 Options are:
   --verbose [0|1]    controls the amount of output information printed
@@ -183,6 +185,9 @@ Options are:
         elif self.cmd == 'cluster':
             self.cluster()
 
+        elif self.cmd == 'structuralcluster':
+            self.structuralcluster()
+
         elif self.cmd == 'model':
             self.model()
 
@@ -204,7 +209,9 @@ Options are:
         if len(self.models) != 1:
             self.error('Model requires one program!')
 
+        print(self.models[0].getlinemap())
         print(self.models[0].tostring())
+
 
     def match(self):
 
@@ -252,6 +259,49 @@ Options are:
         # Add new clusters
         for f in new:
             f.new_name = os.path.join(self.clusterdir, f.new_name)
+            f.new_name = f.new_name + '(' + f.name.split('/')[-1] + ')'
+            print("NEW:", f.name, "->", f.new_name)
+
+            # Copy the source file
+            if os.path.exists(f.new_name):
+                self.error("Filename '%s' already exists!")
+            shutil.copyfile(f.name, f.new_name)
+
+            # Dump expressions
+            f.name = f.new_name
+            self.dump_exprs(f)
+
+        # Write modifications for the modified clusters
+        for f in mod:
+            print("MOD:", f.name)
+            self.dump_exprs(f)
+
+    def structuralcluster(self):
+        if len(self.models) < 1:
+            self.error('Clustering requires at least one program!')
+
+        if not os.path.isdir(self.clusterdir):
+            self.error("Clustering directory '%s' does not exist!", self.clusterdir)
+
+        M = Matching(ignoreio=self.ignoreio, ignoreret=self.ignoreret,
+                     verbose=self.verbose, bijective=self.bijective)
+        C = StructuralClustering(M)
+
+        existing = []
+        for f in glob.glob(os.path.join(self.clusterdir, "*." + self.lang)):
+            model = self.process_source(f)
+            existing.append(model)
+        print("Found %d existing clusters" % (len(existing)))
+                    
+        new, mod = C.cluster(self.models,
+                             entryfnc=self.entryfnc, existing=existing)
+
+        print("Done, %d new clusters, %d modified clusters" % (len(new), len(mod)))
+        
+        # Add new clusters
+        for f in new:
+            f.new_name = os.path.join(self.clusterdir, f.new_name)
+            f.new_name = f.new_name + '(' + f.name.split('/')[-1] + ')'
             print("NEW:", f.name, "->", f.new_name)
 
             # Copy the source file

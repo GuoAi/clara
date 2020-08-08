@@ -2,7 +2,7 @@
 Clustering stuff (a convenience layer over matching)
 '''
 
-class Clustering(object):
+class StructuralClustering(object):
 
     def __init__(self, matching):
         self.matching = matching
@@ -50,7 +50,7 @@ class Clustering(object):
         return anymod
                 
 
-    def cluster(self, progs, inter, ins=None, args=None, entryfnc=None,
+    def cluster(self, progs, entryfnc=None,
                 existing=None):
         if existing is None: existing = []
         clusters = list(existing)
@@ -63,15 +63,14 @@ class Clustering(object):
             found = False
             for i, cprog in enumerate(clusters):
                 try:
-                    m = self.matching.match_programs(
-                        cprog, prog, inter, ins=ins, args=args, entryfnc=entryfnc)
+                    m = self.matching.match_struct(
+                        cprog, prog)
                     if not m: continue
                 
-                
 
-                    modified = self.extract_exprs(cprog, prog, m[0], m[1])
-                    if modified:
-                        modset.add(i)
+                    # modified = self.extract_exprs(cprog, prog, m[0], m[1])
+                    # if modified:
+                        # modset.add(i)
                     
                     found = True
                     break

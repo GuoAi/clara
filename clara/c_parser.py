@@ -100,7 +100,8 @@ class CParser(Parser):
         if node.decl.type.args:
             for param in node.decl.type.args.params:
                 param = self.visit(param, prefix = prefix + name + '.')
-                print('Line %s: %s (c_parser, 103)' % (node.coord.line, prefix + name + '.'))
+                self.prog.addlinemap(node.coord.line, prefix + name + '.')
+                # print('Line %s: %s (c_parser, 103)' % (node.coord.line, prefix + name + '.'))
                 if param == 'void':
                     continue
                 if isinstance(param, Var):
@@ -117,7 +118,8 @@ class CParser(Parser):
         
         self.addloc(desc="at the beginning of the function '%s' at line %s" % (name, node.coord.line, ))
         self.visit(node.body, prefix = prefix + name + '.')
-        print('Line %s: %s (c_parser, 120)' % (node.coord.line, prefix + name + '.'))
+        self.prog.addlinemap(node.coord.line, prefix + name + '.')
+        # print('Line %s: %s (c_parser, 120)' % (node.coord.line, prefix + name + '.'))
 
         self.endfnc()
 
@@ -150,6 +152,8 @@ class CParser(Parser):
             self.addtype(v, t)
 
         self.endfnc()
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 155)' % (node.coord.line, prefix))
 
         return (name, rtype, None)
         
@@ -165,6 +169,9 @@ class CParser(Parser):
 
                 if isinstance(res, Op) and res.name == 'FuncCall':
                     self.addexpr('_', res)
+
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 172)' % (node.coord.line, prefix))
                 
     def visit_Assignment(self, node, prefix):
         '''
@@ -173,6 +180,8 @@ class CParser(Parser):
         '''
 
         lvalue = self.visit_expr(node.lvalue, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 180)' % (node.coord.line, prefix))
         postincdec = self.postincdec
         self.postincdec = 0
         rvalue = self.visit(node.rvalue, prefix = prefix)
@@ -237,7 +246,9 @@ class CParser(Parser):
         Array Initialization List
         Attrs: exprs
         '''
-        exprs = list(map(self.visit_expr, node.exprs or []))
+        exprs = list(map(self.visit_expr, node.exprs or [], prefix))
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 249)' % (node.coord.line, prefix))
         return Op('ArrayInit', *exprs, line=node.coord.line)
 
     def visit_BinaryOp(self, node, prefix):
@@ -308,6 +319,8 @@ class CParser(Parser):
         Attrs: to_type, expr
         '''
         tt = self.visit(node.to_type, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 325)' % (node.coord.line, prefix))
         expr = self.visit_expr(node.expr, prefix = prefix)
         return Op('cast', Const(tt), expr, line=node.coord.line)
 
@@ -318,6 +331,8 @@ class CParser(Parser):
         '''
 
         cond = self.visit_expr(node.cond, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 337)' % (node.coord.line, prefix))
 
         n = self.numexprs()
         ift = self.visit_expr(node.iftrue, prefix = prefix)
@@ -337,7 +352,8 @@ class CParser(Parser):
 
         # Parse condition
         condexpr = self.visit_expr(node.cond, prefix = prefix + 'switch.')
-        print('Line %s: %s (c_parser, 340)' % (node.coord.line, prefix + 'switch.'))
+        self.prog.addlinemap(node.coord.line, prefix + 'switch.')
+        # print('Line %s: %s (c_parser, 340)' % (node.coord.line, prefix + 'switch.'))
 
         # Check that stmt is a compound of "case"/"defaults"
         # and covert to "if-then-else"
@@ -373,7 +389,8 @@ class CParser(Parser):
                 self.inswitch = True
                 
                 res = self.visit(stmt, prefix = prefix + 'switch.')
-                print('Line %s: %s (c_parser, 376)' % (node.coord.line, prefix + 'switch.'))
+                self.prog.addlinemap(node.coord.line, prefix + 'switch.')
+                # print('Line %s: %s (c_parser, 376)' % (node.coord.line, prefix + 'switch.'))
                 
                 self.inswitch = insw
                 
@@ -390,6 +407,8 @@ class CParser(Parser):
 
         # Get (and check) name
         name = self.visit_expr(node.name, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 409)' % (node.coord.line, prefix))
         if not isinstance(name, Var):
             raise NotSupported("Non-var function name: '%s'" % (name,),
                                line=name.line)
@@ -444,6 +463,9 @@ be a format" % (node.coord.line,))
                   Op('StrFormat', fmt, *args, line=node.coord.line),
                   line=node.coord.line)
         self.addexpr(VAR_OUT, expr)
+
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 466)' % (node.coord.line, prefix))
 
     def visit_scanf(self, node, args, prefix):
         '''
@@ -530,11 +552,17 @@ of 'scanf' at line %s.",
             self.addexpr(VAR_IN,
                          Op('ListTail', Var(VAR_IN), line=node.coord.line))
 
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 553)' % (node.coord.line, prefix))
+
     def visit_ExprList(self, node, prefix):
         '''
         ExprList
         Attrs: exprs
         '''
+
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 563)' % (node.coord.line, prefix))
 
         return list(map(self.visit_expr, node.exprs, prefix))
 
@@ -545,7 +573,8 @@ of 'scanf' at line %s.",
         '''
 
         self.visit_if(node, node.cond, node.iftrue, node.iffalse, prefix = prefix + 'if.')
-        print('Line %s: %s (c_parser, 548)' % (self.getline(node), prefix + 'if.'))
+        self.prog.addlinemap(node.coord.line, prefix + 'if.')
+        # print('Line %s: %s (c_parser, 548)' % (self.getline(node), prefix + 'if.'))
 
     def visit_While(self, node, prefix):
         '''
@@ -558,7 +587,8 @@ of 'scanf' at line %s.",
 
         self.visit_loop(node, None, node.cond, None, node.stmt,
                         False, 'while', prefix = prefix + 'while.')
-        print('Line %s: %s (c_parser, 561)' % (node.coord.line, prefix + 'while.'))
+        self.prog.addlinemap(node.coord.line, prefix + 'while.')
+        # print('Line %s: %s (c_parser, 561)' % (node.coord.line, prefix + 'while.'))
 
     def visit_DoWhile(self, node, prefix):
         '''
@@ -571,7 +601,8 @@ of 'scanf' at line %s.",
 
         self.visit_loop(node, None, node.cond, None, node.stmt,
                         True, 'do-while', prefix = prefix + 'dowhile.')
-        print('Line %s: %s (c_parser, 574)' % (node.coord.line, prefix + 'dowhile.'))
+        self.prog.addlinemap(node.coord.line, prefix + 'dowhile.')
+        # print('Line %s: %s (c_parser, 574)' % (node.coord.line, prefix + 'dowhile.'))
 
     def visit_For(self, node, prefix):
         '''
@@ -584,7 +615,8 @@ of 'scanf' at line %s.",
 
         self.visit_loop(node, node.init, node.cond, node.next, node.stmt,
                         False, 'for', prefix = prefix + 'for.')
-        print('Line %s: %s (c_parser, 587)' % (node.coord.line, prefix + 'for.'))
+        self.prog.addlinemap(node.coord.line, prefix + 'for.')
+        # print('Line %s: %s (c_parser, 587)' % (node.coord.line, prefix + 'for.'))
 
     def visit_Return(self, node, prefix):
         '''
@@ -593,6 +625,8 @@ of 'scanf' at line %s.",
         '''
 
         expr = self.visit_expr(node.expr, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 619)' % (node.coord.line, prefix))
         if not expr:
             expr = Const('top', line=node.coord.line)
         self.addexpr(VAR_RET, expr)
@@ -619,6 +653,9 @@ of 'scanf' at line %s.",
                 node.coord.line,))
         self.addtrans(preloc, True, lastloop[1])
 
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 647)' % (node.coord.line, prefix))
+
     def visit_Continue(self, node, prefix):
         '''
         Continue node
@@ -641,6 +678,8 @@ of 'scanf' at line %s.",
             desc="after 'continue' statement at line %s" % (
                 node.coord.line,))
         self.addtrans(preloc, True, lastloop[2] if lastloop[2] else lastloop[0])
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 671)' % (node.coord.line, prefix))
 
     def visit_Label(self, node, prefix):
         '''
@@ -648,6 +687,8 @@ of 'scanf' at line %s.",
         Attrs: name, stmt
         '''
         self.addwarn('Ignoring label at line %s.', node.coord.line)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 680)' % (node.coord.line, prefix))
         return self.visit(node.stmt, prefix = prefix)
 
     def visit_Goto(self, node, prefix):
@@ -656,6 +697,8 @@ of 'scanf' at line %s.",
         Attrs: name
         '''
         raise NotSupported('Not supporting GOTO - it is considered harmful.')
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 688)' % (node.coord.line, prefix))
 
     def visit_Decl(self, node, prefix):
         '''
@@ -665,6 +708,8 @@ of 'scanf' at line %s.",
         '''
 
         (name, type, dim) = self.visit(node.type, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 697)' % (node.coord.line, prefix))
         init = self.visit_expr(node.init, prefix = prefix, allownone=True)
 
         if not self.fncdef:
@@ -694,12 +739,14 @@ of 'scanf' at line %s.",
         '''
 
         (name, type, dim) = self.visit(node.type, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 727)' % (node.coord.line, prefix))
 
         if dim is not None or type.endswith('[]'):
             raise NotSupported('Double Array', line=node.coord.line)
         
         type += '[]'
-        return (name, type, self.visit_expr(node.dim))
+        return (name, type, self.visit_expr(node.dim, prefix = prefix))
 
     def visit_DeclList(self, node, prefix):
         '''
@@ -709,6 +756,8 @@ of 'scanf' at line %s.",
 
         for decl in node.decls:
             self.visit(decl, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 743)' % (node.coord.line, prefix))
 
     def visit_TypeDecl(self, node, prefix):
         '''
@@ -734,6 +783,8 @@ of 'scanf' at line %s.",
         Attrs: quals, type
         '''
         (_, name, _) = self.visit(node.type, prefix = prefix)
+        self.prog.addlinemap(node.coord.line, prefix)
+        # print('Line %s: %s (c_parser, line 773)' % (node.coord.line, prefix))
         return str(name)
 
     def getline(self, node):

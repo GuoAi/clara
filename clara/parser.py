@@ -250,7 +250,7 @@ class Parser(object):
             self.ssa(fnc)
             self.rmtmp(fnc)
 
-    def visit(self, node, prefix):
+    def visit(self, node, prefix = ''):
 
         # Skip None-node
         if node is None:
@@ -265,9 +265,12 @@ class Parser(object):
             raise NotSupported("Unimplemented visitor: '%s'" % (name,))
 
         # Call visitor method
-        return meth(node, prefix = prefix)
+        try:
+            return meth(node, prefix = prefix)
+        except TypeError:
+            return meth(node)
 
-    def visit_expr(self, node, prefix, allowlist=False, allownone=False):
+    def visit_expr(self, node, prefix = '', allowlist=False, allownone=False):
         res = self.visit(node, prefix = prefix)
 
         if isinstance(res, list) and allowlist:
@@ -293,7 +296,7 @@ class Parser(object):
 
         return res
 
-    def visit_if(self, node, cond, true, false, prefix):
+    def visit_if(self, node, cond, true, false, prefix = ''):
 
         # Add condition (with new location)
         preloc = self.loc
@@ -403,7 +406,7 @@ class Parser(object):
                 newexpr = Op('&&', newexpr, expr, line=expr.line)
             return newexpr
 
-    def visit_loop(self, node, init, cond, next, body, do, name, prefix, prebody=None):
+    def visit_loop(self, node, init, cond, next, body, do, name, prefix = '', prebody=None):
         
         # Visit init stmts
         if init:

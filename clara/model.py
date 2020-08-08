@@ -4,6 +4,7 @@ Program model
 
 import re
 from functools import reduce
+import collections
 
 # Special variables definitions
 VAR_COND = '$cond'
@@ -307,6 +308,7 @@ class Program(object):
         self.fncs = {}
         self.meta = {}
         self.warns = []
+        self.linemap = {}
 
     def addfnc(self, fnc):
         self.fncs[fnc.name] = fnc
@@ -376,7 +378,28 @@ class Program(object):
                 sf.append('%s:%s,%s' % (dl[loc], lt, lf))
             s.append('%s{%s}' % (fname, ' '.join(sf)))
         return ' '.join(s)
+    
+    def addlinemap(self, line, struct):
+        if line in self.linemap:
+            if struct != self.linemap[line]:
+                print('Warning: same line has different structure')
+        else:
+            self.linemap[line] = struct
 
+    def getlinemap(self):
+        od = collections.OrderedDict(sorted(self.linemap.items()))
+        first = next(iter(od))
+        last = next(reversed(od))
+        curr = od[first]
+        for i in range(first, last):
+            if i not in od:
+                od[i] = curr
+            else:
+                curr = od[i]
+        od = collections.OrderedDict(sorted(od.items()))
+        # for line, struct in od.items():
+        #     print('Line %d: %s' % (line, struct))
+        return od
 
 class Function(object):
     '''

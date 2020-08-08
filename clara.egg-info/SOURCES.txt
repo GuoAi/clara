@@ -25,6 +25,7 @@ clara/py_parser.py
 clara/pylpsolve.c
 clara/pylpsolve.pyx
 clara/repair.py
+clara/structuralclustering.py
 clara.egg-info/PKG-INFO
 clara.egg-info/SOURCES.txt
 clara.egg-info/dependency_links.txt
