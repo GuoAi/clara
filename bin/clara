@@ -73,6 +73,7 @@ Options are:
                      than N, an error occurs
                      (default is 0, which means that there is no limit)
   --clusterdir DIR   directory to write/read clustering results
+  --printmodel [0|1] whether to print out the model (default is 1, for command model)
 '''
 
     def __init__(self):
@@ -104,8 +105,6 @@ Options are:
         sys.exit(1)
 
     def main(self):
-
-        print('v1')
 
         global VERBOSE
 
@@ -154,6 +153,8 @@ Options are:
         self.args = self.opts.pop('args', None)
         self.insfile = self.opts.pop('insfile', None)
         self.argsfile = self.opts.pop('argsfile', None)
+
+        self.printmodel = self.opts.pop('printmodel', 1)
 
         if self.ins is not None and self.insfile is not None:
             self.error('Got both inputs and file with inputs: which to use?')
@@ -210,7 +211,9 @@ Options are:
             self.error('Model requires one program!')
 
         print(self.models[0].getlinemap())
-        print(self.models[0].tostring())
+
+        if (self.printmodel == 1):
+            print(self.models[0].tostring())
 
 
     def match(self):
