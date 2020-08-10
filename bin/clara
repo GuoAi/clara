@@ -74,6 +74,9 @@ Options are:
                      (default is 0, which means that there is no limit)
   --clusterdir DIR   directory to write/read clustering results
   --printmodel [0|1] whether to print out the model (default is 1, for command model)
+  --printlinemap [0|1] whether to print out the linemap (default is 1, for command model)
+  --printprog [0|1]  whether to print out clustered programs (default is 1, for command cluster/structuralcluster)
+  --makefolder [0|1] whether to make folders for clusters (default is 1, for command cluster/structuralcluster)
 '''
 
     def __init__(self):
@@ -155,6 +158,9 @@ Options are:
         self.argsfile = self.opts.pop('argsfile', None)
 
         self.printmodel = self.opts.pop('printmodel', 1)
+        self.printlinemap = self.opts.pop('printlinemap', 1)
+        self.printprog = self.opts.pop('printprog', 1)
+        self.makefolder = self.opts.pop('makefolder', 1)
 
         if self.ins is not None and self.insfile is not None:
             self.error('Got both inputs and file with inputs: which to use?')
@@ -210,9 +216,10 @@ Options are:
         if len(self.models) != 1:
             self.error('Model requires one program!')
 
-        print(self.models[0].getlinemap())
+        if self.printlinemap == 1:
+            print(self.models[0].getlinemap())
 
-        if (self.printmodel == 1):
+        if self.printmodel == 1:
             print(self.models[0].tostring())
 
 
@@ -263,26 +270,29 @@ Options are:
         for f in new:
             f.new_name = os.path.join(self.clusterdir, f.new_name)
             f.new_name = f.new_name.split('.')[0] + '(' + f.name.split('/')[-1].split('.')[0] + ').c' 
-            print("NEW:", f.name, "->", f.new_name)
+            if self.printprog == 1:    
+                print("NEW:", f.name, "->", f.new_name)
 
-            # Copy the source file
-            if os.path.exists(f.new_name):
-                self.error("Filename '%s' already exists!")
-            shutil.copyfile(f.name, f.new_name)
+                # Copy the source file
+                if os.path.exists(f.new_name):
+                    self.error("Filename '%s' already exists!")
+                shutil.copyfile(f.name, f.new_name)
 
-            # Dump expressions
-            f.name = f.new_name
-            self.dump_exprs(f)
+                # Dump expressions
+                f.name = f.new_name
+                self.dump_exprs(f)
 
-        # Write modifications for the modified clusters
-        for f in mod:
-            print("MOD:", f.name)
-            self.dump_exprs(f)
+        if self.printprog == 1:
+            # Write modifications for the modified clusters
+            for f in mod:
+                print("MOD:", f.name)
+                self.dump_exprs(f)
 
-        for cprog in clusters_dict:
-            os.mkdir(cprog.new_name.replace('.c', ''))
-            for prog in clusters_dict[cprog]:
-                shutil.copyfile(prog.name, cprog.new_name.replace('.c', '') + '/' + prog.name.split('/')[-1])
+        if self.makefolder == 1:
+            for cprog in clusters_dict:
+                os.mkdir(cprog.new_name.replace('.c', ''))
+                for prog in clusters_dict[cprog]:
+                    shutil.copyfile(prog.name, cprog.new_name.replace('.c', '') + '/' + prog.name.split('/')[-1])
 
     def structuralcluster(self):
         if len(self.models) < 1:
@@ -310,26 +320,29 @@ Options are:
         for f in new:
             f.new_name = os.path.join(self.clusterdir, f.new_name)
             f.new_name = f.new_name.split('.')[0] + '(' + f.name.split('/')[-1].split('.')[0] + ').c' 
-            print("NEW:", f.name, "->", f.new_name)
+            if self.printprog == 1:
+                print("NEW:", f.name, "->", f.new_name)
 
-            # Copy the source file
-            if os.path.exists(f.new_name):
-                self.error("Filename '%s' already exists!")
-            shutil.copyfile(f.name, f.new_name)
+                # Copy the source file
+                if os.path.exists(f.new_name):
+                    self.error("Filename '%s' already exists!")
+                shutil.copyfile(f.name, f.new_name)
 
-            # Dump expressions
-            f.name = f.new_name
-            self.dump_exprs(f)
+                # Dump expressions
+                f.name = f.new_name
+                self.dump_exprs(f)
 
         # Write modifications for the modified clusters
-        for f in mod:
-            print("MOD:", f.name)
-            self.dump_exprs(f)
+        if self.printprog == 1:
+            for f in mod:
+                print("MOD:", f.name)
+                self.dump_exprs(f)
 
-        for cprog in clusters_dict:
-            os.mkdir(cprog.new_name.replace('.c', ''))
-            for prog in clusters_dict[cprog]:
-                shutil.copyfile(prog.name, cprog.new_name.replace('.c', '') + '/' + prog.name.split('/')[-1])
+        if self.makefolder == 1:
+            for cprog in clusters_dict:
+                os.mkdir(cprog.new_name.replace('.c', ''))
+                for prog in clusters_dict[cprog]:
+                    shutil.copyfile(prog.name, cprog.new_name.replace('.c', '') + '/' + prog.name.split('/')[-1])
 
     def eval(self):
 
