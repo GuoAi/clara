@@ -102,19 +102,19 @@ Does not work on Python 3.8.
 Changes to original clara
 -------------------------
 
-- New command: structuralcluster
-Cluster programs by structure only. Usage is similar to `cluster` command, but `args` and `ins` attributes are not required.
-- Changes to existing commands
-  - `model`
-  `model` command is able to print out the structure of the given program as an ordereddict with line number as key and the structure as value. 
-  - `cluster`
+- New command: structuralcluster  
+Cluster programs by structure only. Usage is similar to `cluster` command, but `args` and `ins` attributes are not required.  
+- Changes to existing commands  
+  - `model`  
+  `model` command is able to print out the structure of the given program as an ordereddict with line number as key and the structure as value.   
+  - `cluster`  
   `cluster` command is able to put programs in the same cluster into the same folder. (Previously output was the first program in each cluster.)
-- New attributes
-  - `printmodel`
-  For `model` command only, whether to print out model in original clara (default is 1).
-  - `printlinemap`
-  For `model` command only, whether to print out the structure of the given program as an ordereddict (default is 1).
-  - `printprog`
-  For `cluster` and `structuralcluster` commands only, whether to output the first program in each cluster (default is 1).
-  - `makefolder`
-  For `cluster` and `structuralcluster` commands only, whether to output folders as clusters and programs in the same cluster are put in the same folder (default is 1).
+- New attributes  
+  - `printmodel`  
+  For `model` command only, whether to print out model in original clara (default is 1).  
+  - `printlinemap`  
+  For `model` command only, whether to print out the structure of the given program as an ordereddict (default is 1).  
+  - `printprog`  
+  For `cluster` and `structuralcluster` commands only, whether to output the first program in each cluster (default is 1).  
+  - `makefolder`  
+  For `cluster` and `structuralcluster` commands only, whether to output folders as clusters and programs in the same cluster are put in the same folder (default is 1).  
