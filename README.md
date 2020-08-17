@@ -102,7 +102,7 @@ Does not work on Python 3.8.
 Changes to original clara
 -------------------------
 
-- New command: structuralcluster  
+- New command: `structuralcluster`  
 Cluster programs by structure only. Usage is similar to `cluster` command, but `args` and `ins` attributes are not required.  
 - Changes to existing commands  
   - `model`  
